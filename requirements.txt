@@ -1,0 +1,15 @@
+pandas
+numpy
+scikit-learn
+lightgbm
+optuna
+mlflow
+feast
+apache-airflow
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+dvc
+python-multipart
+pydantic
