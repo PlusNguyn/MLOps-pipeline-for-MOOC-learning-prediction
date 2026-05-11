@@ -1,38 +1,66 @@
+# =========================
 # Core Data Science & ML
+# =========================
 pandas
 numpy
 scikit-learn
 xgboost
 lightgbm
-catboost
 
+# =========================
 # MLOps & Experiment Tracking
+# =========================
 mlflow
 optuna
 dvc
 
+# =========================
 # API & Serving
+# =========================
 fastapi
+uvicorn[standard]
 pydantic
-uvicorn
 
+# =========================
 # Database
+# =========================
 sqlalchemy
+psycopg2-binary
 
-# Monitoring & Validation
+# =========================
+# Workflow Orchestration
+# =========================
+apache-airflow
+
+# =========================
+# Monitoring
+# =========================
 evidently
 
+# =========================
 # Utilities
+# =========================
 python-dotenv
 pyyaml
 loguru
-click
+joblib
+requests
 
+# =========================
+# Data Visualization
+# =========================
+matplotlib
+seaborn
+
+# =========================
 # Testing
+# =========================
 pytest
 pytest-cov
 
-# Development
+# =========================
+# Development Tools
+# =========================
 black
 flake8
 isort

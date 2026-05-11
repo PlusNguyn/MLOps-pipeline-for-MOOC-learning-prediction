@@ -1,0 +1,19 @@
+# requirements.api.txt
+
+fastapi
+uvicorn[standard]
+
+pandas
+numpy
+scikit-learn
+xgboost
+
+joblib
+
+pydantic
+
+sqlalchemy
+psycopg2-binary
+
+python-dotenv
+loguru
