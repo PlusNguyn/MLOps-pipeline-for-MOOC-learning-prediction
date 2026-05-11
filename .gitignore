@@ -1,40 +1,75 @@
-# Data
-data/processed/
-data/raw/big_student_clear_third_version.csv.dvc
+# Environment
+.env
+.env.local
+*.venv
+venv/
+ENV/
 
-# Models
-models/
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*.sublime-project
+*.sublime-workspace
 
 # Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
 .Python
-env/
-venv/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing
+.pytest_cache/
 .coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
+htmlcov/
+
+# Data
+data/raw/
+data/processed/
+data/features/
+*.csv
+
+# Models & Artifacts
+models/
+artifacts/
+*.pkl
+*.joblib
+*.h5
+
+# Logs
+logs/
 *.log
-.git
-.mypy_cache
-.pytest_cache
-.hypothesis
 
 # DVC
-.dvc/tmp/
 .dvc/cache/
+.dvc/tmp/
+dvc_storage/
 
 # MLflow
 mlruns/
+mlflow.db
 
-# Feast
-feature_store/data/
+# System
+.DS_Store
+Thumbs.db
+*.~

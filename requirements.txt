@@ -1,15 +1,39 @@
+# Core Data Science & ML
 pandas
 numpy
 scikit-learn
+xgboost
 lightgbm
-optuna
+catboost
+
+# MLOps & Experiment Tracking
 mlflow
-feast
-apache-airflow
-fastapi
-uvicorn
-sqlalchemy
-psycopg2-binary
+optuna
 dvc
-python-multipart
+
+# API & Serving
+fastapi
 pydantic
+uvicorn
+
+# Database
+sqlalchemy
+
+# Monitoring & Validation
+evidently
+
+# Utilities
+python-dotenv
+pyyaml
+loguru
+click
+
+# Testing
+pytest
+pytest-cov
+
+# Development
+black
+flake8
+isort
+mypy
