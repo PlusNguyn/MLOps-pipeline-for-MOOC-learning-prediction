@@ -30,7 +30,7 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - mlflow_artifacts:/mlflow/artifacts
+      - mlflow_artifacts:/mlflow
     depends_on:
       postgres:
         condition: service_healthy
@@ -50,6 +50,8 @@ services:
       MLFLOW_MODEL_NAME: student_performance_model
     ports:
       - "8000:8000"
+    volumes:
+      - mlflow_artifacts:/mlflow
     depends_on:
       mlflow:
         condition: service_healthy
