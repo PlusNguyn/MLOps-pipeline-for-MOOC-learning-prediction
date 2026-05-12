@@ -1,15 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+import os
+import mlflow
+import mlflow.pyfunc
 from pydantic import BaseModel
-
-import joblib
 import pandas as pd
 
-
-# =========================
-# Load Model
-# =========================
-
-model = joblib.load("models/model.pkl")
+from src.processing.feature_engineering import build_feature_row
 
 
 # =========================
@@ -17,8 +13,57 @@ model = joblib.load("models/model.pkl")
 # =========================
 
 app = FastAPI(
-    title="MOOC Learning Prediction API"
+    title="Learning Prediction API"
 )
+
+
+# =========================
+# MLflow Setup
+# =========================
+
+MLFLOW_TRACKING_URI = os.getenv(
+    "MLFLOW_TRACKING_URI",
+    "http://localhost:5000"
+)
+MLFLOW_MODEL_NAME = os.getenv(
+    "MLFLOW_MODEL_NAME",
+    "student_performance_model"
+)
+
+mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+
+# =========================
+# Load Model
+# =========================
+
+model = None
+
+
+def load_model_from_registry():
+    return mlflow.pyfunc.load_model(
+        f"models:/{MLFLOW_MODEL_NAME}/Production"
+    )
+
+
+@app.on_event("startup")
+def load_model():
+
+    global model
+
+    try:
+
+        model = load_model_from_registry()
+
+        print("=" * 50)
+        print("MODEL LOADED")
+        print(f"MLflow Tracking URI: {MLFLOW_TRACKING_URI}")
+        print("=" * 50)
+
+    except Exception as e:
+
+        print("=" * 50)
+        print(f"FAILED TO LOAD MODEL: {e}")
+        print("=" * 50)
 
 
 # =========================
@@ -30,19 +75,30 @@ class StudentData(BaseModel):
     num_clicks: int
     days_active: int
     avg_score: float
-    engagement_score: float
-    consistency: float
+    studied_credits: int
 
 
 # =========================
-# Home Route
+# Root Route
 # =========================
 
 @app.get("/")
-def home():
+def root():
 
     return {
-        "message": "MOOC Prediction API Running"
+        "message": "Learning Prediction API Running"
+    }
+
+
+# =========================
+# Health Check
+# =========================
+
+@app.get("/health")
+def health():
+
+    return {
+        "model_loaded": model is not None
     }
 
 
@@ -53,13 +109,33 @@ def home():
 @app.post("/predict")
 def predict(data: StudentData):
 
-    input_df = pd.DataFrame([{
-        "num_clicks": data.num_clicks,
-        "days_active": data.days_active,
-        "avg_score": data.avg_score,
-        "engagement_score": data.engagement_score,
-        "consistency": data.consistency
-    }])
+    if model is None:
+
+        raise HTTPException(
+            status_code=500,
+            detail="Model not loaded"
+        )
+
+    # =========================
+    # Feature Engineering
+    # =========================
+
+    features = build_feature_row(
+        num_clicks=data.num_clicks,
+        days_active=data.days_active,
+        avg_score=data.avg_score,
+        studied_credits=data.studied_credits,
+    )
+
+    # =========================
+    # Create DataFrame
+    # =========================
+
+    input_df = pd.DataFrame([features])
+
+    # =========================
+    # Prediction
+    # =========================
 
     prediction = model.predict(input_df)[0]
 
@@ -71,5 +147,34 @@ def predict(data: StudentData):
 
     return {
         "prediction": int(prediction),
-        "level": label_map[int(prediction)]
+        "level": label_map[int(prediction)],
+        "engagement_score": round(
+            features["engagement_score"],
+            4
+        ),
+        "consistency": round(
+            features["consistency"],
+            4
+        )
     }
+
+@app.post("/reload-model")
+def reload_model():
+
+    global model
+
+    try:
+        model = load_model_from_registry()
+
+        return {
+            "message": "Model reloaded",
+            "model_loaded": True
+        }
+
+    except Exception as e:
+        model = None
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )

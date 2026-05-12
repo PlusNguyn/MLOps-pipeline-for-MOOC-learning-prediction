@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:15
+    container_name: oulad-postgres
     environment:
       POSTGRES_DB: mlflow_db
       POSTGRES_USER: mlflow
@@ -9,36 +10,78 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
-  pgadmin:
-    image: dpage/pgadmin4
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@gmail.com
-      PGADMIN_DEFAULT_PASSWORD: admin123
-    ports:
-      - "8081:80"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlflow -d mlflow_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   mlflow:
     build:
       context: .
       dockerfile: Dockerfile.mlflow
-
+    container_name: oulad-mlflow
+    environment:
+      MLFLOW_BACKEND_STORE_URI: postgresql://mlflow:mlflow123@postgres:5432/mlflow_db
+      MLFLOW_DEFAULT_ARTIFACT_ROOT: /mlflow/artifacts
+      MLFLOW_HOST: 0.0.0.0
+      MLFLOW_PORT: 5000
+      MLFLOW_ALLOWED_HOSTS: "*"
     ports:
       - "5000:5000"
-
+    volumes:
+      - mlflow_artifacts:/mlflow/artifacts
     depends_on:
-      - postgres
-  
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000').read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
   fastapi:
     build:
       context: .
       dockerfile: Dockerfile.api
-
+    container_name: oulad-fastapi
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MLFLOW_MODEL_NAME: student_performance_model
     ports:
       - "8000:8000"
-
     depends_on:
-      - postgres
+      mlflow:
+        condition: service_healthy
+
+  airflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    container_name: oulad-airflow
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      PYTHONPATH: /opt/airflow/project
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MLFLOW_MODEL_NAME: student_performance_model
+      GIT_PYTHON_REFRESH: quiet
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./:/opt/airflow/project
+      - ./logs:/opt/airflow/logs
+      - mlflow_artifacts:/mlflow
+    command: >
+      bash -c "airflow db migrate &&
+      airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin123 || true &&
+      airflow scheduler &
+      exec airflow webserver"
+    depends_on:
+      mlflow:
+        condition: service_healthy
 
 volumes:
   postgres_data:
+  mlflow_artifacts:

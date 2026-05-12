@@ -1,10 +1,16 @@
-import pandas as pd
+# main.py
 
-from src.pipeline.preprocess import preprocess
+from src.pipeline.preprocess import (
+    preprocess
+)
 
-from src.training.train import train
+from src.training.train import (
+    train_pipeline
+)
 
-from src.training.optuna_tune import tune_model
+from src.training.optuna_tune import (
+    tune_pipeline
+)
 
 
 def main():
@@ -14,22 +20,22 @@ def main():
     print("=" * 50)
 
     # =========================
-    # Preprocess Dataset
+    # Preprocess
     # =========================
 
-    processed_df = preprocess()
+    preprocess()
 
     # =========================
-    # Baseline Training
+    # Train Baseline Model
     # =========================
 
-    train(processed_df)
+    train_pipeline()
 
     # =========================
     # Hyperparameter Tuning
     # =========================
 
-    tune_model(processed_df)
+    tune_pipeline()
 
     print("=" * 50)
     print("PIPELINE COMPLETED")
@@ -39,4 +45,3 @@ def main():
 if __name__ == "__main__":
 
     main()
-
