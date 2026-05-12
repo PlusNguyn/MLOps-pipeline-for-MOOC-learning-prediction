@@ -51,6 +51,13 @@ requests
 # =========================
 matplotlib
 seaborn
+plotly
+
+# =========================
+# Web UI
+# =========================
+flask
+gunicorn
 
 # =========================
 # Testing

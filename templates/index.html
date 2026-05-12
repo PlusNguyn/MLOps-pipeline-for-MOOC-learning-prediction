@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}OULAD Learning Prediction{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <section class="input-section">
+        <h2>🎓 Student Data Input</h2>
+        <form id="prediction-form">
+            <div class="form-group">
+                <label for="num_clicks">Number of Clicks</label>
+                <input type="number" id="num_clicks" name="num_clicks" 
+                       min="0" max="10000" value="420" required>
+                <small>Total number of clicks on VLE materials</small>
+            </div>
+
+            <div class="form-group">
+                <label for="days_active">Days Active</label>
+                <input type="number" id="days_active" name="days_active" 
+                       min="0" max="365" value="18" required>
+                <small>Number of days the student was active</small>
+            </div>
+
+            <div class="form-group">
+                <label for="avg_score">Average Score (%)</label>
+                <div class="slider-container">
+                    <input type="range" id="avg_score" name="avg_score" 
+                           min="0" max="100" value="72.5" step="0.1">
+                    <span id="score-value">72.5</span>
+                </div>
+                <small>Average assessment score</small>
+            </div>
+
+            <div class="form-group">
+                <label for="studied_credits">Studied Credits</label>
+                <input type="number" id="studied_credits" name="studied_credits" 
+                       min="0" max="360" value="60" required>
+                <small>Total credits studied</small>
+            </div>
+
+            <button type="submit" class="btn btn-primary">🔮 Predict Performance</button>
+        </form>
+    </section>
+
+    <section id="results-section" class="results-section" style="display: none;">
+        <h2>📊 Prediction Results</h2>
+        <div class="results-container">
+            <div class="result-card">
+                <h3>Performance Level</h3>
+                <p id="prediction-level" class="result-value">-</p>
+            </div>
+            <div class="result-card">
+                <h3>Engagement Score</h3>
+                <p id="engagement-score" class="result-value">-</p>
+            </div>
+            <div class="result-card">
+                <h3>Consistency</h3>
+                <p id="consistency-score" class="result-value">-</p>
+            </div>
+        </div>
+        <div id="result-message" class="result-message"></div>
+        <button onclick="resetForm()" class="btn btn-secondary">↻ Clear Results</button>
+    </section>
+
+    <section class="info-section">
+        <h2>📈 Sample Performance Distribution</h2>
+        <div class="charts-container">
+            <div class="chart-box">
+                <h3>Performance Breakdown</h3>
+                <canvas id="performanceChart"></canvas>
+            </div>
+            <div class="chart-box">
+                <h3>Engagement by Level</h3>
+                <canvas id="engagementChart"></canvas>
+            </div>
+        </div>
+    </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script src="{{ url_for('static', filename='charts.js') }}"></script>
+{% endblock %}

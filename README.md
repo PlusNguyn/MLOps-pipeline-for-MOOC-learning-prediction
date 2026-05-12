@@ -18,7 +18,8 @@ Phiên bản hiện tại đã được đồng bộ để `Airflow`, `MLflow` v
 - `MLflow`: theo dõi thí nghiệm, lưu model registry và artifact.
 - `Airflow`: chạy DAG `student_learning_pipeline` để preprocess, train và tune model.
 - `FastAPI`: nạp model từ MLflow Registry và cung cấp API dự đoán.
-- `PostgreSQL`: backend store cho MLflow.
+- `Flask`: giao diện web đơn giản để tương tác với API dự đoán.
+- `PostgreSQL`: backend store cho MLflow, Airflow và dữ liệu ứng dụng.
 
 ## Cấu trúc thư mục
 
@@ -37,9 +38,19 @@ Phiên bản hiện tại đã được đồng bộ để `Airflow`, `MLflow` v
 │   ├── pipeline/
 │   ├── processing/
 │   └── training/
+├── templates/
+│   ├── base.html
+│   ├── index.html
+│   ├── 404.html
+│   └── 500.html
+├── static/
+│   ├── style.css
+│   └── script.js
+├── web_app.py
 ├── Dockerfile.airflow
 ├── Dockerfile.api
 ├── Dockerfile.mlflow
+├── Dockerfile.flask
 ├── docker-compose.yml
 ├── main.py
 ├── requirements.txt
@@ -66,6 +77,7 @@ Các service sẽ chạy ở các địa chỉ:
 - MLflow UI: `http://localhost:5000`
 - Airflow UI: `http://localhost:8080`
 - FastAPI docs: `http://localhost:8000/docs`
+- Flask Web UI: `http://localhost:5000` (lưu ý: MLflow cũng dùng port 5000, nếu chạy local thay bằng 5001)
 
 ### 2. Đăng nhập Airflow
 
@@ -102,6 +114,15 @@ Nếu API chưa nạp được model, gọi reload:
 ```bash
 curl -X POST http://localhost:8000/reload-model
 ```
+
+### 5. Sử dụng Flask Web UI
+
+Truy cập `http://localhost:5000` để sử dụng giao diện web:
+
+- **Input Fields**: Nhập dữ liệu học sinh (số click, ngày hoạt động, điểm trung bình, tín chỉ học)
+- **Prediction**: Nhấn nút để dự đoán hiệu suất học tập
+- **Visualization**: Xem biểu đồ phân phối hiệu suất mẫu
+- **Health Check**: Kiểm tra trạng thái API trực tiếp trên trang
 
 ## API sử dụng
 
@@ -200,6 +221,15 @@ python main.py
 set MLFLOW_TRACKING_URI=http://localhost:5000
 uvicorn api.app:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+### 6. Chạy Flask Web UI
+
+```bash
+pip install flask gunicorn
+python web_app.py
+```
+
+Truy cập `http://localhost:5000` để sử dụng giao diện.
 
 ## Luồng pipeline
 

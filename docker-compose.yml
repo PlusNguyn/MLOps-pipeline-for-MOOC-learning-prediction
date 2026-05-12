@@ -96,6 +96,23 @@ services:
       mlflow:
         condition: service_healthy
 
+  flask:
+    build:
+      context: .
+      dockerfile: Dockerfile.flask
+    container_name: oulad-web
+    env_file:
+      - .env
+    environment:
+      API_BASE_URL: http://fastapi:8000
+      FLASK_ENV: production
+    ports:
+      - "8888:5000"
+    depends_on:
+      fastapi:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   mlflow_artifacts:
