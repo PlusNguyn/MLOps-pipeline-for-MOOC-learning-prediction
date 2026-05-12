@@ -8,6 +8,11 @@ from src.processing.feature_engineering import (
     engineer_features
 )
 
+from src.utils.database import (
+    init_db,
+    save_dataframe
+)
+
 
 # =========================
 # Paths
@@ -62,6 +67,17 @@ def preprocess():
     processed_df.to_csv(
         PROCESSED_DATA_PATH,
         index=False
+    )
+
+    # =========================
+    # Save Processed Data to Postgres
+    # =========================
+
+    init_db()
+    save_dataframe(
+        table_name="processed_train_data",
+        df=processed_df,
+        if_exists="replace"
     )
 
     print("=" * 50)

@@ -2,16 +2,19 @@ services:
   postgres:
     image: postgres:15
     container_name: oulad-postgres
+    env_file:
+      - .env
     environment:
-      POSTGRES_DB: mlflow_db
-      POSTGRES_USER: mlflow
-      POSTGRES_PASSWORD: mlflow123
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mlflow -d mlflow_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -21,11 +24,13 @@ services:
       context: .
       dockerfile: Dockerfile.mlflow
     container_name: oulad-mlflow
+    env_file:
+      - .env
     environment:
-      MLFLOW_BACKEND_STORE_URI: postgresql://mlflow:mlflow123@postgres:5432/mlflow_db
-      MLFLOW_DEFAULT_ARTIFACT_ROOT: /mlflow/artifacts
-      MLFLOW_HOST: 0.0.0.0
-      MLFLOW_PORT: 5000
+      MLFLOW_BACKEND_STORE_URI: ${MLFLOW_BACKEND_STORE_URI}
+      MLFLOW_DEFAULT_ARTIFACT_ROOT: ${MLFLOW_DEFAULT_ARTIFACT_ROOT}
+      MLFLOW_HOST: ${MLFLOW_HOST}
+      MLFLOW_PORT: ${MLFLOW_PORT}
       MLFLOW_ALLOWED_HOSTS: "*"
     ports:
       - "5000:5000"
@@ -45,9 +50,12 @@ services:
       context: .
       dockerfile: Dockerfile.api
     container_name: oulad-fastapi
+    env_file:
+      - .env
     environment:
-      MLFLOW_TRACKING_URI: http://mlflow:5000
-      MLFLOW_MODEL_NAME: student_performance_model
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI}
+      MLFLOW_MODEL_NAME: ${MLFLOW_MODEL_NAME}
+      DATABASE_URL: ${DATABASE_URL}
     ports:
       - "8000:8000"
     volumes:
@@ -61,12 +69,16 @@ services:
       context: .
       dockerfile: Dockerfile.airflow
     container_name: oulad-airflow
+    env_file:
+      - .env
     environment:
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: ${AIRFLOW_DATABASE_URL}
       PYTHONPATH: /opt/airflow/project
-      MLFLOW_TRACKING_URI: http://mlflow:5000
-      MLFLOW_MODEL_NAME: student_performance_model
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI}
+      MLFLOW_MODEL_NAME: ${MLFLOW_MODEL_NAME}
+      DATABASE_URL: ${DATABASE_URL}
       GIT_PYTHON_REFRESH: quiet
     ports:
       - "8080:8080"

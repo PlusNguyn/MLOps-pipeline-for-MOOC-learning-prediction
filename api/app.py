@@ -4,8 +4,14 @@ import mlflow
 import mlflow.pyfunc
 from pydantic import BaseModel
 import pandas as pd
+from sqlalchemy.exc import SQLAlchemyError
 
 from src.processing.feature_engineering import build_feature_row
+from src.utils.database import (
+    SessionLocal,
+    PredictionLog,
+    init_db
+)
 
 
 # =========================
@@ -49,6 +55,8 @@ def load_model_from_registry():
 def load_model():
 
     global model
+
+    init_db()
 
     try:
 
@@ -145,7 +153,7 @@ def predict(data: StudentData):
         2: "High"
     }
 
-    return {
+    result = {
         "prediction": int(prediction),
         "level": label_map[int(prediction)],
         "engagement_score": round(
@@ -157,6 +165,27 @@ def predict(data: StudentData):
             4
         )
     }
+
+    try:
+        with SessionLocal() as session:
+            log = PredictionLog(
+                num_clicks=data.num_clicks,
+                days_active=data.days_active,
+                avg_score=data.avg_score,
+                studied_credits=data.studied_credits,
+                engagement_score=features["engagement_score"],
+                consistency=features["consistency"],
+                prediction=int(prediction),
+                prediction_label=label_map[int(prediction)],
+                model_name=MLFLOW_MODEL_NAME,
+                model_stage="Production"
+            )
+            session.add(log)
+            session.commit()
+    except SQLAlchemyError as exc:
+        print(f"Failed to save prediction log: {exc}")
+
+    return result
 
 @app.post("/reload-model")
 def reload_model():

@@ -37,11 +37,13 @@ with DAG(
 
     default_args=default_args,
 
-    start_date=datetime(2025, 1, 1),
+    start_date=datetime(2026, 1, 1),
 
-    schedule="@daily",
+    schedule=None,
 
-    catchup=False
+    catchup=False,
+
+    max_active_runs=1,
 
 ) as dag:
 
