@@ -63,7 +63,7 @@ logs/
 # DVC
 .dvc/cache/
 .dvc/tmp/
-dvc_storage/
+dvc-storage/
 
 # MLflow
 mlruns/
