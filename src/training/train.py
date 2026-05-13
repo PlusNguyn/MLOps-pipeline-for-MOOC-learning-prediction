@@ -1,262 +1,120 @@
-# src/training/train.py
-import os
-import joblib
 import mlflow
 import mlflow.sklearn
 import pandas as pd
-
-from pathlib import Path
-
+from lightgbm import LGBMClassifier
+from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 from xgboost import XGBClassifier
 
-from mlflow.tracking import MlflowClient
-
-from sklearn.metrics import (
-    accuracy_score,
-    f1_score,
-    classification_report
-)
-
-from sklearn.model_selection import (
-    train_test_split
-)
-
-
-# =========================
-# Config
-# =========================
-
-FEATURES = [
-    "num_clicks",
-    "days_active",
-    "avg_score",
-    "engagement_score",
-    "consistency"
-]
-
-BASE_DIR = Path(__file__).resolve().parents[2]
-
-RAW_DATA_PATH = BASE_DIR / "data" / "raw"
-PROCESSED_DATA_PATH = BASE_DIR / "data" / "processed" / "train.csv"
-
-MODEL_OUTPUT_PATH = BASE_DIR / "models" / "xgboost_model.pkl"
-MLFLOW_MODEL_NAME = os.getenv(
-    "MLFLOW_MODEL_NAME",
-    "student_performance_model"
+from src.processing.feature_engineering import FEATURE_COLUMNS
+from src.training.common import (
+    LOCAL_FEATURES_PATH,
+    LOCAL_MEDIANS_PATH,
+    PROCESSED_DATA_PATH,
+    configure_mlflow,
+    log_dataframe_artifact,
+    log_dataset_overview,
+    log_model_diagnostics,
+    register_model,
+    save_local_artifacts,
+    split_training_data,
 )
 
 
-# =========================
-# Core Training Function
-# =========================
+def _evaluate_model(model, X_test, y_test) -> dict[str, float]:
+    y_pred = model.predict(X_test)
+    y_proba = model.predict_proba(X_test)[:, 1]
+    return {
+        "roc_auc": float(roc_auc_score(y_test, y_proba)),
+        "f1_score": float(f1_score(y_test, y_pred)),
+        "accuracy": float(accuracy_score(y_test, y_pred)),
+    }
+
 
 def train(df: pd.DataFrame):
+    configure_mlflow("oulad_student_at_risk_training")
+    X_train, X_test, y_train, y_test = split_training_data(df)
+    medians = X_train.median().to_dict()
 
-    # =========================
-    # MLflow Setup
-    # =========================
+    models = {
+        "xgboost": XGBClassifier(
+            n_estimators=300,
+            max_depth=6,
+            learning_rate=0.05,
+            subsample=0.9,
+            colsample_bytree=0.9,
+            reg_alpha=1e-4,
+            reg_lambda=1.0,
+            eval_metric="logloss",
+            random_state=42,
+            n_jobs=-1,
+        ),
+        "lightgbm": LGBMClassifier(
+            n_estimators=300,
+            learning_rate=0.05,
+            num_leaves=31,
+            random_state=42,
+            n_jobs=-1,
+        ),
+    }
 
-   
-    tracking_uri = os.getenv(
-        "MLFLOW_TRACKING_URI",
-        "http://localhost:5000"
-    )
+    comparison_rows = []
+    best_name = None
+    best_model = None
+    best_metrics = None
 
-    print(f"MLflow Tracking URI: {tracking_uri}")
+    with mlflow.start_run(run_name="baseline_model_comparison") as run:
+        mlflow.log_param("feature_count", len(FEATURE_COLUMNS))
+        mlflow.log_param("models_compared", ",".join(models.keys()))
+        mlflow.log_text("\n".join(FEATURE_COLUMNS), "reports/features.txt")
+        log_dataset_overview(df)
 
-    mlflow.set_tracking_uri(tracking_uri)
+        for model_name, model in models.items():
+            with mlflow.start_run(run_name=model_name, nested=True):
+                model.fit(X_train, y_train)
+                metrics = _evaluate_model(model, X_test, y_test)
+                mlflow.log_params(model.get_params())
+                mlflow.log_metrics(metrics)
+                log_model_diagnostics(model, X_test, y_test, prefix=model_name.title())
 
-    mlflow.set_experiment(
-        "oulad_learning_prediction"
-    )
+                comparison_rows.append({"model": model_name, **metrics})
 
-    # =========================
-    # Features & Labels
-    # =========================
+                if best_metrics is None or metrics["roc_auc"] > best_metrics["roc_auc"]:
+                    best_name = model_name
+                    best_model = model
+                    best_metrics = metrics
 
-    X = df[FEATURES]
+        comparison_df = pd.DataFrame(comparison_rows).sort_values("roc_auc", ascending=False)
+        log_dataframe_artifact(comparison_df, "baseline_model_comparison.csv")
+        mlflow.log_metrics({f"best_{k}": v for k, v in best_metrics.items()})
+        mlflow.log_param("best_model_name", best_name)
 
-    y = df["label"]
+        save_local_artifacts(best_model, medians, best_metrics)
+        mlflow.log_artifact(str(LOCAL_FEATURES_PATH), artifact_path="artifacts")
+        mlflow.log_artifact(str(LOCAL_MEDIANS_PATH), artifact_path="artifacts")
 
-    # =========================
-    # Train/Test Split
-    # =========================
+        mlflow.sklearn.log_model(best_model, artifact_path="model")
+        register_model(run.info.run_id, "model")
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X,
-        y,
-        test_size=0.2,
-        random_state=42,
-        stratify=y
-    )
+    print("=" * 50)
+    print("BASELINE MODEL COMPARISON")
+    print(comparison_df.to_string(index=False))
+    print("=" * 50)
+    print(f"Best model: {best_name}")
+    print(f"Saved local model artifacts to: {ascii(str(LOCAL_FEATURES_PATH.parent))}")
+    print("=" * 50)
 
-    # =========================
-    # Start MLflow Run
-    # =========================
+    return best_model
 
-    with mlflow.start_run():
-
-        params = {
-            "n_estimators": 100,
-            "max_depth": 4,
-            "learning_rate": 0.1,
-            "random_state": 42,
-            "objective": "multi:softmax",
-            "num_class": 3,
-            "eval_metric": "mlogloss"
-        }
-
-        model = XGBClassifier(
-            **params
-        )
-
-        # =========================
-        # Training
-        # =========================
-
-        model.fit(
-            X_train,
-            y_train
-        )
-
-        # =========================
-        # Prediction
-        # =========================
-
-        preds = model.predict(
-            X_test
-        )
-
-        # =========================
-        # Metrics
-        # =========================
-
-        acc = accuracy_score(
-            y_test,
-            preds
-        )
-
-        f1 = f1_score(
-            y_test,
-            preds,
-            average="weighted"
-        )
-
-        # =========================
-        # Logging Metrics
-        # =========================
-
-        mlflow.log_params(
-            params
-        )
-
-        mlflow.log_metric(
-            "accuracy",
-            acc
-        )
-
-        mlflow.log_metric(
-            "f1_score",
-            f1
-        )
-
-        # =========================
-        # Save Local Model
-        # =========================
-
-        MODEL_OUTPUT_PATH.parent.mkdir(
-            parents=True,
-            exist_ok=True
-        )
-
-        joblib.dump(
-            model,
-            MODEL_OUTPUT_PATH
-        )
-
-        # Log + Register Model
-        mlflow.sklearn.log_model(
-            sk_model=model,
-            artifact_path="model",
-            registered_model_name=MLFLOW_MODEL_NAME
-        )
-
-        client = MlflowClient()
-
-        latest = client.get_latest_versions(
-            name=MLFLOW_MODEL_NAME
-        )[-1]
-
-        client.transition_model_version_stage(
-            name=MLFLOW_MODEL_NAME,
-            version=latest.version,
-            stage="Production",
-            archive_existing_versions=True
-        )
-
-        # =========================
-        # Console Output
-        # =========================
-
-        print("=" * 50)
-
-        print(
-            f"Accuracy : {acc:.4f}"
-        )
-
-        print(
-            f"F1 Score : {f1:.4f}"
-        )
-
-        print("=" * 50)
-
-        print(
-            classification_report(
-                y_test,
-                preds
-            )
-        )
-
-        print("=" * 50)
-
-        print(
-            f"Model saved to: {MODEL_OUTPUT_PATH}"
-        )
-
-        print("=" * 50)
-
-    return model
-
-
-# =========================
-# Airflow Pipeline Function
-# =========================
 
 def train_pipeline():
-
+    print("=" * 50)
+    print("LOADING PROCESSED DATA")
     print("=" * 50)
 
-    print(
-        "LOADING PROCESSED DATA"
-    )
-
-    print("=" * 50)
-
-    df = pd.read_csv(
-        PROCESSED_DATA_PATH
-    )
-
-    print(
-        f"Dataset Shape: {df.shape}"
-    )
-
+    df = pd.read_csv(PROCESSED_DATA_PATH)
+    print(f"Dataset Shape: {df.shape}")
     train(df)
 
 
-# =========================
-# Standalone Execution
-# =========================
-
 if __name__ == "__main__":
-
     train_pipeline()

@@ -50,5 +50,6 @@ def save_dataframe(table_name: str, df: pd.DataFrame, if_exists: str = "replace"
         con=engine,
         if_exists=if_exists,
         index=False,
-        method="multi"
+        method="multi",
+        chunksize=500,
     )

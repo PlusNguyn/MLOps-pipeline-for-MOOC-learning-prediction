@@ -1,5 +1,3 @@
-import os
-
 from api import app as api_app
 
 
@@ -10,7 +8,7 @@ def test_load_model_from_registry_uses_mlflow(monkeypatch):
         loaded["path"] = path
         return "fake-model"
 
-    monkeypatch.setattr(api_app.mlflow.pyfunc, "load_model", fake_load_model)
+    monkeypatch.setattr(api_app.mlflow.sklearn, "load_model", fake_load_model)
 
     model = api_app.load_model_from_registry()
 

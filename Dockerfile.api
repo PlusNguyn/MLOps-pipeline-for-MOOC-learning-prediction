@@ -4,12 +4,17 @@ WORKDIR /app
 
 COPY requirements.api.txt .
 
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libgomp1 && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN pip install --no-cache-dir -r requirements.api.txt
 
 ENV PYTHONPATH=/app
 
 COPY api ./api
 COPY src ./src
+COPY models ./models
 
 EXPOSE 8000
 

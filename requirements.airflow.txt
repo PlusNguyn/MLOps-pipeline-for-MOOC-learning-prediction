@@ -11,3 +11,6 @@ python-dotenv
 pyyaml
 loguru
 requests
+seaborn
+matplotlib
+lightgbm

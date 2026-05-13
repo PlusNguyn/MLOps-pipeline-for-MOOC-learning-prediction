@@ -74,7 +74,7 @@ services:
     environment:
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__EXECUTOR: SequentialExecutor
-      AIRFLOW__CORE__SQL_ALCHEMY_CONN: ${AIRFLOW_DATABASE_URL}
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW_DATABASE_URL}
       PYTHONPATH: /opt/airflow/project
       MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI}
       MLFLOW_MODEL_NAME: ${MLFLOW_MODEL_NAME}
@@ -88,7 +88,7 @@ services:
       - ./logs:/opt/airflow/logs
       - mlflow_artifacts:/mlflow
     command: >
-      bash -c "airflow db migrate &&
+      bash -c "airflow db init &&
       airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin123 || true &&
       airflow scheduler &
       exec airflow webserver"
