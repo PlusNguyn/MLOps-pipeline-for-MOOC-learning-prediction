@@ -381,6 +381,15 @@ Kết quả tiền xử lý được lưu tại:
 data/processed/train.csv
 ```
 
+### Lưu trữ kép
+
+Dự án hiện lưu dữ liệu và metadata đồng thời:
+
+- local: `data/` CSV/JSON và `models/`
+- Postgres: bảng `raw_*`, `synthetic_*`, `processed_train_data`, feature metadata, model features/medians, prediction logs
+
+Điều này giúp giữ dữ liệu truy vấn nhanh trên file và đồng bộ metadata/phiên bản với Postgres.
+
 ## Hạn chế hiện tại
 
 - Thư mục `tests/` chưa có test tự động.

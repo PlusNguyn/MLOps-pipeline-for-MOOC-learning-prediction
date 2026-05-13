@@ -1,5 +1,6 @@
 import pandas as pd
 
+from src.ingestion.load_oulad import _merge_synthetic_table
 from src.pipeline import preprocess as preprocess_module
 
 
@@ -69,3 +70,26 @@ def test_preprocess_pipeline_monkeypatch(monkeypatch):
     assert called["save_feature_metadata"]
     assert result_df["label"].iloc[0] == 1
     assert result_df["total_clicks"].iloc[0] == 30
+
+
+def test_merge_synthetic_table_deduplicates_and_appends(tmp_path):
+    base_df = pd.DataFrame(
+        [
+            {"code_module": "AAA", "code_presentation": "2013J", "id_student": 1, "final_result": "Pass"},
+            {"code_module": "BBB", "code_presentation": "2014J", "id_student": 2, "final_result": "Fail"},
+        ]
+    )
+    synthetic_dir = tmp_path / "synthetic" / "current"
+    synthetic_dir.mkdir(parents=True)
+    pd.DataFrame(
+        [
+            {"code_module": "BBB", "code_presentation": "2014J", "id_student": 2, "final_result": "Pass"},
+            {"code_module": "CCC", "code_presentation": "2015J", "id_student": 3, "final_result": "Distinction"},
+        ]
+    ).to_csv(synthetic_dir / "studentInfo.csv", index=False)
+
+    merged = _merge_synthetic_table("students", base_df, synthetic_dir)
+
+    assert len(merged) == 3
+    assert merged.loc[merged["id_student"] == 2, "final_result"].iloc[0] == "Pass"
+    assert 3 in merged["id_student"].values

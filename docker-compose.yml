@@ -60,9 +60,15 @@ services:
       - "8000:8000"
     volumes:
       - mlflow_artifacts:/mlflow
+      - ./data:/app/data:ro
     depends_on:
       mlflow:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
   airflow:
@@ -80,6 +86,7 @@ services:
       MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI}
       MLFLOW_MODEL_NAME: ${MLFLOW_MODEL_NAME}
       DATABASE_URL: ${DATABASE_URL}
+      SYNTHETIC_API_BASE_URL: http://fastapi:8000
       GIT_PYTHON_REFRESH: quiet
     ports:
       - "8080:8080"
@@ -95,6 +102,8 @@ services:
       exec airflow webserver"
     depends_on:
       mlflow:
+        condition: service_healthy
+      fastapi:
         condition: service_healthy
     restart: unless-stopped
 

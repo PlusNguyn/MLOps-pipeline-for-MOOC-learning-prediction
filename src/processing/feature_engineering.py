@@ -234,7 +234,7 @@ def build_inference_frame(
 def save_feature_metadata(
     output_path: str | Path,
     medians: dict[str, float] | None = None,
-) -> None:
+) -> dict[str, object]:
     payload = {"features": FEATURE_COLUMNS, "target": TARGET_COLUMN}
     if medians is not None:
         payload["medians"] = medians
@@ -242,3 +242,4 @@ def save_feature_metadata(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return payload

@@ -12,7 +12,7 @@ from sklearn.metrics import ConfusionMatrixDisplay, RocCurveDisplay
 from sklearn.model_selection import train_test_split
 
 from src.processing.feature_engineering import FEATURE_COLUMNS, TARGET_COLUMN
-from src.utils.database import save_model_features, save_model_medians
+from src.utils.database import init_db, save_model_features, save_model_medians
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 PROCESSED_DATA_PATH = BASE_DIR / "data" / "processed" / "train.csv"
@@ -71,6 +71,7 @@ def save_local_artifacts(
     LOCAL_FEATURES_PATH.write_text(json.dumps(FEATURE_COLUMNS, indent=2), encoding="utf-8")
     LOCAL_METRICS_PATH.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
 
+    init_db()
     # Save to database
     save_model_features(FEATURE_COLUMNS)
     save_model_medians(medians)

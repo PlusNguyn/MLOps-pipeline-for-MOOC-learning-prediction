@@ -108,3 +108,20 @@ def test_predict_endpoint_returns_prediction_and_logs(monkeypatch):
     assert data["success_probability"] == 0.85
     assert "engagement_score" in data
     assert "consistency" in data
+
+
+def test_synthetic_data_endpoint_returns_expected_shape():
+    async def request_synthetic():
+        transport = ASGITransport(app=api_app.app)
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            return await client.get("/synthetic-data", params={"target_date": "2026-05-01", "batch_size": 12})
+
+    response = asyncio.run(request_synthetic())
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["target_date"] == "2026-05-01"
+    assert payload["batch_size"] == 12
+    assert payload["row_counts"]["students"] == 12
+    assert len(payload["data"]["students"]) == 12
+    assert {"students", "assessments", "vle"} == set(payload["data"].keys())

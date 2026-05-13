@@ -56,6 +56,14 @@ class ModelMedians(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class FeatureMetadata(Base):
+    __tablename__ = "feature_metadata"
+
+    id = Column(Integer, primary_key=True, index=True)
+    metadata_json = Column("metadata", String, nullable=False)  # JSON string of feature metadata
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
 
@@ -90,6 +98,18 @@ def save_model_medians(medians: dict[str, float]) -> None:
         medians_json = json.dumps(medians)
         db_medians = ModelMedians(medians=medians_json)
         session.add(db_medians)
+        session.commit()
+    finally:
+        session.close()
+
+
+def save_feature_metadata(metadata: dict[str, object]) -> None:
+    import json
+    session = SessionLocal()
+    try:
+        metadata_json = json.dumps(metadata)
+        db_metadata = FeatureMetadata(metadata_json=metadata_json)
+        session.add(db_metadata)
         session.commit()
     finally:
         session.close()

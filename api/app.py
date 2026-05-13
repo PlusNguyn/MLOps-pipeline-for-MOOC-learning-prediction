@@ -5,11 +5,12 @@ from pathlib import Path
 import mlflow
 import mlflow.sklearn
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.processing.feature_engineering import build_feature_row, build_inference_frame
+from src.synthetic.generator import generate_synthetic_oulad_batch
 from src.training.common import LOCAL_FEATURES_PATH, LOCAL_MEDIANS_PATH, MLFLOW_MODEL_NAME
 from src.utils.database import PredictionLog, SessionLocal, init_db
 
@@ -59,6 +60,13 @@ class StudentData(BaseModel):
     studied_credits: int | None = None
 
 
+class SyntheticDataResponse(BaseModel):
+    target_date: str
+    batch_size: int
+    row_counts: dict[str, int]
+    data: dict[str, list[dict[str, object]]]
+
+
 @app.get("/")
 def root():
     return {"message": "Learning Prediction API Running"}
@@ -67,6 +75,21 @@ def root():
 @app.get("/health")
 def health():
     return {"model_loaded": model is not None}
+
+
+@app.get("/synthetic-data", response_model=SyntheticDataResponse)
+def synthetic_data(
+    target_date: str | None = None,
+    batch_size: int = Query(default=64, ge=8, le=500),
+):
+    batch = generate_synthetic_oulad_batch(target_date=target_date, batch_size=batch_size)
+    resolved_date = target_date or str(pd.Timestamp.utcnow().date())
+    return SyntheticDataResponse(
+        target_date=resolved_date,
+        batch_size=batch_size,
+        row_counts=batch.row_counts(),
+        data=batch.to_payload(),
+    )
 
 
 @app.post("/predict")
