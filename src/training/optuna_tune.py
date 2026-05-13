@@ -3,9 +3,10 @@ import mlflow.sklearn
 import optuna
 import pandas as pd
 from pathlib import Path
-from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from xgboost import XGBClassifier
+from lightgbm import LGBMClassifier
 
 from src.training.common import (
     LOCAL_FEATURES_PATH,
@@ -35,6 +36,18 @@ def _load_existing_best_roc_auc() -> float | None:
         return None
 
     return float(metrics["roc_auc"])
+
+
+def _evaluate_model(model, X_test, y_test) -> dict[str, float]:
+    y_pred = model.predict(X_test)
+    y_proba = model.predict_proba(X_test)[:, 1]
+    return {
+        "roc_auc": float(roc_auc_score(y_test, y_proba)),
+        "precision": float(precision_score(y_test, y_pred)),
+        "recall": float(recall_score(y_test, y_pred)),
+        "f1_score": float(f1_score(y_test, y_pred)),
+        "accuracy": float(accuracy_score(y_test, y_pred)),
+    }
 
 
 def tune_model(df: pd.DataFrame):
@@ -83,8 +96,8 @@ def tune_model(df: pd.DataFrame):
             "random_state": SEED,
             "n_jobs": -1,
         }
-
         best_model = XGBClassifier(**best_params)
+
         best_model.fit(X_train, y_train)
 
         y_pred = best_model.predict(X_test)
@@ -92,6 +105,8 @@ def tune_model(df: pd.DataFrame):
 
         metrics = {
             "roc_auc": float(roc_auc_score(y_test, y_proba)),
+            "precision": float(precision_score(y_test, y_pred)),
+            "recall": float(recall_score(y_test, y_pred)),
             "f1_score": float(f1_score(y_test, y_pred)),
             "accuracy": float(accuracy_score(y_test, y_pred)),
             "best_cv_roc_auc": float(study.best_value),
@@ -109,16 +124,18 @@ def tune_model(df: pd.DataFrame):
 
         mlflow.log_metric("existing_best_roc_auc", existing_best_roc_auc or 0.0)
         mlflow.log_param("promoted_to_production", should_promote)
+        mlflow.log_param("tuned_model", "xgboost")
+
+        save_local_artifacts(best_model, medians, metrics)
+        mlflow.log_artifact(str(LOCAL_FEATURES_PATH), artifact_path="artifacts")
+        mlflow.log_artifact(str(LOCAL_MEDIANS_PATH), artifact_path="artifacts")
+        mlflow.sklearn.log_model(best_model, artifact_path="model")
 
         if should_promote:
-            save_local_artifacts(best_model, medians, metrics)
-            mlflow.log_artifact(str(LOCAL_FEATURES_PATH), artifact_path="artifacts")
-            mlflow.log_artifact(str(LOCAL_MEDIANS_PATH), artifact_path="artifacts")
-            mlflow.sklearn.log_model(best_model, artifact_path="model")
             register_model(run.info.run_id, "model")
 
     print("=" * 50)
-    print("OPTUNA BEST PARAMETERS")
+    print("OPTUNA BEST PARAMETERS FOR XGBOOST")
     print(study.best_params)
     print(f"Best CV ROC-AUC: {study.best_value:.4f}")
     print("=" * 50)

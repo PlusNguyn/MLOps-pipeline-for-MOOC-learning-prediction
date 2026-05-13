@@ -1,9 +1,7 @@
 from __future__ import annotations
-
 import json
 import os
 from pathlib import Path
-
 import joblib
 import matplotlib.pyplot as plt
 import mlflow
@@ -14,6 +12,7 @@ from sklearn.metrics import ConfusionMatrixDisplay, RocCurveDisplay
 from sklearn.model_selection import train_test_split
 
 from src.processing.feature_engineering import FEATURE_COLUMNS, TARGET_COLUMN
+from src.utils.database import save_model_features, save_model_medians
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 PROCESSED_DATA_PATH = BASE_DIR / "data" / "processed" / "train.csv"
@@ -30,6 +29,18 @@ MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
 
 def configure_mlflow(experiment_name: str) -> None:
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+    client = MlflowClient()
+    experiment = client.get_experiment_by_name(experiment_name)
+
+    if experiment is None:
+        client.create_experiment(experiment_name)
+    elif experiment.lifecycle_stage == "deleted":
+        try:
+            client.restore_experiment(experiment.experiment_id)
+        except AttributeError:
+            # Older MLflow versions may not support restore_experiment.
+            pass
+
     mlflow.set_experiment(experiment_name)
 
 
@@ -60,11 +71,15 @@ def save_local_artifacts(
     LOCAL_FEATURES_PATH.write_text(json.dumps(FEATURE_COLUMNS, indent=2), encoding="utf-8")
     LOCAL_METRICS_PATH.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
 
+    # Save to database
+    save_model_features(FEATURE_COLUMNS)
+    save_model_medians(medians)
+
 
 def register_model(run_id: str, artifact_path: str) -> None:
     model_uri = f"runs:/{run_id}/{artifact_path}"
     result = mlflow.register_model(model_uri=model_uri, name=MLFLOW_MODEL_NAME)
-    client = MlflowClient()
+    client = MlflowClient(tracking_uri=MLFLOW_TRACKING_URI)
 
     try:
         latest_versions = client.get_latest_versions(name=MLFLOW_MODEL_NAME)

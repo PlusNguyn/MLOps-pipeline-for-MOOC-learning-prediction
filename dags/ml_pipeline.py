@@ -1,8 +1,6 @@
 from datetime import datetime, timedelta
 from pathlib import Path
 import sys
-import seaborn as sns
-import matplotlib.pyplot as plt
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
@@ -13,7 +11,15 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.pipeline.preprocess import preprocess
 from src.training.optuna_tune import tune_pipeline
-from src.training.train import train_pipeline
+from src.training.train import (
+    compare_baseline_pipeline,
+    train_lgbm_pipeline,
+    train_xgboost_pipeline,
+)
+
+
+def pipeline_done():
+    print("Student learning pipeline completed successfully.")
 
 
 default_args = {
@@ -26,7 +32,7 @@ default_args = {
 
 with DAG(
     dag_id="student_learning_pipeline",
-    description="Preprocess OULAD data, compare baseline models, then run Optuna tuning.",
+    description="Preprocess OULAD data, train baselines, compare models, tune XGBoost, then mark completion.",
     default_args=default_args,
     start_date=datetime(2026, 1, 1),
     schedule=None,
@@ -40,10 +46,11 @@ with DAG(
     DAG này chạy theo đúng flow mới của project:
 
     1. `preprocess_oulad_dataset`: gộp các bảng OULAD và tạo feature theo notebook.
-    2. `train_baseline_models`: train nhiều model baseline, log metric + chart vào MLflow.
-    3. `tune_xgboost_with_optuna`: tune XGBoost bằng Optuna và chỉ promote nếu model tốt hơn.
-
-    Sau khi preprocess xong, hai nhánh training sẽ chạy song song để rút ngắn thời gian DAG.
+    2. `train_lgbm_baseline`: huấn luyện mô hình baseline LightGBM.
+    3. `train_xgboost_baseline`: huấn luyện mô hình baseline XGBoost.
+    4. `compare_baseline_models`: so sánh hai baseline và log kết quả.
+    5. `tune_xgboost`: tune XGBoost bằng Optuna.
+    6. `done`: đánh dấu hoàn thành pipeline.
     """,
 ) as dag:
     preprocess_task = PythonOperator(
@@ -53,18 +60,41 @@ with DAG(
         doc_md="Tạo tập `data/processed/train.csv` và feature metadata từ các bảng OULAD gốc.",
     )
 
-    train_task = PythonOperator(
-        task_id="train_baseline_models",
-        python_callable=train_pipeline,
+    train_lgbm_task = PythonOperator(
+        task_id="train_lgbm_baseline",
+        python_callable=train_lgbm_pipeline,
         execution_timeout=timedelta(hours=1),
-        doc_md="Train XGBoost + LightGBM baseline, log metrics, charts và register best model.",
+        doc_md="Huấn luyện baseline LightGBM và log metrics vào MLflow.",
+    )
+
+    train_xgboost_task = PythonOperator(
+        task_id="train_xgboost_baseline",
+        python_callable=train_xgboost_pipeline,
+        execution_timeout=timedelta(hours=1),
+        doc_md="Huấn luyện baseline XGBoost và log metrics vào MLflow.",
+    )
+
+    compare_task = PythonOperator(
+        task_id="compare_baseline_models",
+        python_callable=compare_baseline_pipeline,
+        execution_timeout=timedelta(hours=1),
+        doc_md="So sánh performance giữa LightGBM và XGBoost baseline.",
     )
 
     tune_task = PythonOperator(
-        task_id="tune_xgboost_with_optuna",
+        task_id="tune_xgboost",
         python_callable=tune_pipeline,
         execution_timeout=timedelta(hours=2),
-        doc_md="Chạy Optuna tuning cho XGBoost và chỉ cập nhật Production nếu metric tốt hơn.",
+        doc_md="Tune XGBoost bằng Optuna và log kết quả tốt nhất.",
     )
 
-    preprocess_task >> [train_task, tune_task]
+    done_task = PythonOperator(
+        task_id="done",
+        python_callable=pipeline_done,
+        execution_timeout=timedelta(minutes=10),
+        doc_md="Đánh dấu pipeline đã hoàn thành.",
+    )
+
+    preprocess_task >> [train_lgbm_task, train_xgboost_task]
+    [train_lgbm_task, train_xgboost_task] >> compare_task
+    compare_task >> tune_task >> done_task

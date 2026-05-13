@@ -63,6 +63,7 @@ services:
     depends_on:
       mlflow:
         condition: service_healthy
+    restart: unless-stopped
 
   airflow:
     build:
@@ -95,6 +96,7 @@ services:
     depends_on:
       mlflow:
         condition: service_healthy
+    restart: unless-stopped
 
   flask:
     build:

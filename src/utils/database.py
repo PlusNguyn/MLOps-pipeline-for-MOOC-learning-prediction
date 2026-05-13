@@ -40,6 +40,22 @@ class PredictionLog(Base):
     model_stage = Column(String(64), nullable=True)
 
 
+class ModelFeatures(Base):
+    __tablename__ = "model_features"
+
+    id = Column(Integer, primary_key=True, index=True)
+    features = Column(String, nullable=False)  # JSON string of feature list
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ModelMedians(Base):
+    __tablename__ = "model_medians"
+
+    id = Column(Integer, primary_key=True, index=True)
+    medians = Column(String, nullable=False)  # JSON string of medians dict
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
 
@@ -53,3 +69,27 @@ def save_dataframe(table_name: str, df: pd.DataFrame, if_exists: str = "replace"
         method="multi",
         chunksize=500,
     )
+
+
+def save_model_features(features: list[str]) -> None:
+    import json
+    session = SessionLocal()
+    try:
+        features_json = json.dumps(features)
+        db_features = ModelFeatures(features=features_json)
+        session.add(db_features)
+        session.commit()
+    finally:
+        session.close()
+
+
+def save_model_medians(medians: dict[str, float]) -> None:
+    import json
+    session = SessionLocal()
+    try:
+        medians_json = json.dumps(medians)
+        db_medians = ModelMedians(medians=medians_json)
+        session.add(db_medians)
+        session.commit()
+    finally:
+        session.close()
