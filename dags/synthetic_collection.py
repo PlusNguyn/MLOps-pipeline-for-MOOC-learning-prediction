@@ -24,8 +24,7 @@ with DAG(
     dag_id="synthetic_oulad_daily_collection",
     description="Collect daily synthetic OULAD-like records from FastAPI for later weekly retraining.",
     start_date=datetime(2026, 1, 1),
-    # schedule="@daily",
-    schedule_interval="*/3 * * * *",
+    schedule="@daily",
     catchup=False,
     max_active_runs=1,
     default_args={
